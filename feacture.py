@@ -1,287 +1,230 @@
-from schnapsen.game import *
-from typing import Optional
-from schnapsen.deck import *
 import torch
+from torch import tensor
+from typing import Optional
+from schnapsen.game import *
+
+# 为了避免在每次调用时重复构造，可预先构建常量映射字典（也可直接在函数中构造）
+_ONE_HOT_SUITS = {
+    Suit.HEARTS: torch.tensor([0, 0, 0, 1], dtype=torch.float32),
+    Suit.CLUBS: torch.tensor([0, 0, 1, 0], dtype=torch.float32),
+    Suit.SPADES: torch.tensor([0, 1, 0, 0], dtype=torch.float32),
+    Suit.DIAMONDS: torch.tensor([1, 0, 0, 0], dtype=torch.float32)
+}
+
+_ONE_HOT_RANKS = {
+    Rank.ACE:    torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], dtype=torch.float32),
+    Rank.TWO:    torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], dtype=torch.float32),
+    Rank.THREE:  torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], dtype=torch.float32),
+    Rank.FOUR:   torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], dtype=torch.float32),
+    Rank.FIVE:   torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.SIX:    torch.tensor([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.SEVEN:  torch.tensor([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.EIGHT:  torch.tensor([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.NINE:   torch.tensor([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.TEN:    torch.tensor([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.JACK:   torch.tensor([0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.QUEEN:  torch.tensor([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32),
+    Rank.KING:   torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32),
+}
 
 
-class ActionRepresentation:
-    def __init__(self):
-        """
-        Initialize the action space for Schnapsen. This includes:
-        - Regular moves for all cards.
-        - Special moves like marriages and trump exchanges.
-        """
-        self.suits = [Suit.HEARTS, Suit.SPADES, Suit.CLUBS, Suit.DIAMONDS]  # All suits
-        self.ranks = [Rank.JACK, Rank.QUEEN, Rank.KING, Rank.TEN, Rank.ACE]  # All ranks
-        self.action_map = {}  # Maps actions to unique indices
-        self.reverse_action_map = {}  # Maps indices to actions
-        self._initialize_actions()
-
-    def _initialize_actions(self):
-        """Create the mapping between actions and indices."""
-        action_id = 0
-
-        # Regular moves (play any card)
-        for suit in self.suits:
-            for rank in self.ranks:
-                card = Card.get_card(rank, suit)
-                move = RegularMove(card)
-                self.action_map[move] = action_id
-                self.reverse_action_map[action_id] = move
-                action_id += 1
-
-        # Marriage moves
-        for suit in self.suits:
-            queen_card = Card.get_card(Rank.QUEEN, suit)
-            king_card = Card.get_card(Rank.KING, suit)
-            move = Marriage(queen_card, king_card)
-            self.action_map[move] = action_id
-            self.reverse_action_map[action_id] = move
-            action_id += 1
-
-        # Trump exchange
-        for suit in self.suits:
-            jack_card = Card.get_card(Rank.JACK, suit)
-            move = TrumpExchange(jack_card)
-            self.action_map[move] = action_id
-            self.reverse_action_map[action_id] = move
-            action_id += 1
-
-    def get_action_tensor(self):
-        """
-        Create an empty action tensor.
-        :return: A tensor with zeros, size equal to the total number of actions.
-        """
-        return torch.zeros(len(self.action_map))
-
-    def encode_action(self, move: Move):
-        """
-        Encode a move into its corresponding index in the action tensor.
-        :param move: The move to encode.
-        :return: The index of the move in the tensor.
-        """
-        return self.action_map.get(move, None)
-
-    def decode_action(self, action_id: int):
-        """
-        Decode an action index back into a move.
-        :param action_id: The index to decode.
-        :return: The corresponding move.
-        """
-        return self.reverse_action_map.get(action_id, None)
-
-    def set_valid_actions(self, valid_moves: list[Move]):
-        """
-        Create a tensor with valid moves set to 1.
-        :param valid_moves: A list of valid moves.
-        :return: A tensor indicating valid actions.
-        """
-        action_tensor = self.get_action_tensor()
-        for move in valid_moves:
-            action_id = self.encode_action(move)
-            if action_id is not None:
-                action_tensor[action_id] = 1
-        return action_tensor
-
-def create_state_and_actions_vector_representation(perspective: PlayerPerspective, leader_move: Optional[Move],
-                                                   follower_move: Optional[Move]) -> list[int]:
+def get_state_feature(perspective: PlayerPerspective,
+                      leader_move: Optional[Move]) -> torch.Tensor:
     """
-    This function takes as input a PlayerPerspective variable, and the two moves of leader and follower,
-    and returns a list of complete feature representation that contains all information
+    由于“没有 follower move”，所以只接收 leader_move。
+    直接使用原生tensor操作构建状态向量，并返回 float32 类型的张量。
     """
-    player_game_state_representation = get_state_feature_vector(perspective)
-    leader_move_representation = get_move_feature_vector(leader_move)
-    follower_move_representation = get_move_feature_vector(follower_move)
+    player_state_tensor = get_state_feature_vector(perspective)  # shape: [445]
+    leader_move_tensor = get_move_feature_vector(leader_move)      # shape: [20]
+    # 拼接两部分
+    full_state = torch.cat([player_state_tensor, leader_move_tensor])
+    return full_state  # shape: [445 + 20 = 465]
 
-    return player_game_state_representation + leader_move_representation + follower_move_representation
 
-
-def get_one_hot_encoding_of_card_suit(card_suit: Suit) -> list[int]:
+def get_one_hot_encoding_of_card_suit(card_suit: Suit) -> torch.Tensor:
     """
-    Translating the suit of a card into one hot vector encoding of size 4.
+    返回4维one-hot张量表示花色。
     """
-    card_suit_one_hot: list[int]
-    if card_suit == Suit.HEARTS:
-        card_suit_one_hot = [0, 0, 0, 1]
-    elif card_suit == Suit.CLUBS:
-        card_suit_one_hot = [0, 0, 1, 0]
-    elif card_suit == Suit.SPADES:
-        card_suit_one_hot = [0, 1, 0, 0]
-    elif card_suit == Suit.DIAMONDS:
-        card_suit_one_hot = [1, 0, 0, 0]
+    if card_suit in _ONE_HOT_SUITS:
+        return _ONE_HOT_SUITS[card_suit]
     else:
         raise ValueError("Suit of card was not found!")
 
-    return card_suit_one_hot
 
-
-def get_one_hot_encoding_of_card_rank(card_rank: Rank) -> list[int]:
+def get_one_hot_encoding_of_card_rank(card_rank: Rank) -> torch.Tensor:
     """
-    Translating the rank of a card into one hot vector encoding of size 13.
+    返回13维one-hot张量表示牌的级别。
     """
-    card_rank_one_hot: list[int]
-    if card_rank == Rank.ACE:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-    elif card_rank == Rank.TWO:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
-    elif card_rank == Rank.THREE:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
-    elif card_rank == Rank.FOUR:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
-    elif card_rank == Rank.FIVE:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
-    elif card_rank == Rank.SIX:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]
-    elif card_rank == Rank.SEVEN:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-    elif card_rank == Rank.EIGHT:
-        card_rank_one_hot = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
-    elif card_rank == Rank.NINE:
-        card_rank_one_hot = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-    elif card_rank == Rank.TEN:
-        card_rank_one_hot = [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    elif card_rank == Rank.JACK:
-        card_rank_one_hot = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    elif card_rank == Rank.QUEEN:
-        card_rank_one_hot = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    elif card_rank == Rank.KING:
-        card_rank_one_hot = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    if card_rank in _ONE_HOT_RANKS:
+        return _ONE_HOT_RANKS[card_rank]
     else:
         raise AssertionError("Provided card Rank does not exist!")
-    return card_rank_one_hot
 
 
-def get_move_feature_vector(move: Optional[Move]) -> list[int]:
+def get_move_feature_vector(move: Optional[Move]) -> torch.Tensor:
     """
-        In case there isn't any move provided move to encode, we still need to create a "padding"-"meaningless" vector of the same size,
-        filled with 0s, since the ML models need to receive input of the same dimensionality always.
-        Otherwise, we create all the information of the move i) move type, ii) played card rank and iii) played card suit
-        translate this information into one-hot vectors respectively, and concatenate these vectors into one move feature representation vector
+    如果 move 为 None，则返回20维零张量；
+    否则返回 one-hot 表示：move_type (3) + rank (13) + suit (4) = 20 维。
     """
-
     if move is None:
-        move_type_one_hot_encoding_numpy_array = [0, 0, 0]
-        card_rank_one_hot_encoding_numpy_array = [0, 0, 0, 0]
-        card_suit_one_hot_encoding_numpy_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
+        return torch.zeros(20, dtype=torch.float32)
     else:
-        move_type_one_hot_encoding: list[int]
-        # in case the move is a marriage move
         if move.is_marriage():
-            move_type_one_hot_encoding = [0, 0, 1]
+            move_type = torch.tensor([0, 0, 1], dtype=torch.float32)
             card = move.queen_card
-        #  in case the move is a trump exchange move
         elif move.is_trump_exchange():
-            move_type_one_hot_encoding = [0, 1, 0]
+            move_type = torch.tensor([0, 1, 0], dtype=torch.float32)
             card = move.jack
-        #  in case it is a regular move
         else:
-            move_type_one_hot_encoding = [1, 0, 0]
+            move_type = torch.tensor([1, 0, 0], dtype=torch.float32)
             card = move.card
-        move_type_one_hot_encoding_numpy_array = move_type_one_hot_encoding
-        card_rank_one_hot_encoding_numpy_array = get_one_hot_encoding_of_card_rank(card.rank)
-        card_suit_one_hot_encoding_numpy_array = get_one_hot_encoding_of_card_suit(card.suit)
 
-    return move_type_one_hot_encoding_numpy_array + card_rank_one_hot_encoding_numpy_array + card_suit_one_hot_encoding_numpy_array
+        rank_tensor = get_one_hot_encoding_of_card_rank(card.rank)  # 13维
+        suit_tensor = get_one_hot_encoding_of_card_suit(card.suit)    # 4维
+        return torch.cat([move_type, rank_tensor, suit_tensor])  # 共 3+13+4 = 20 维
 
 
-def get_state_feature_vector(perspective: PlayerPerspective) -> list[int]:
+def normalize_scalar_features(features: torch.Tensor, max_values: torch.Tensor) -> torch.Tensor:
     """
-        This function gathers all subjective information that this bot has access to, that can be used to decide its next move, including:
-        - points of this player (int)
-        - points of the opponent (int)
-        - pending points of this player (int)
-        - pending points of opponent (int)
-        - the trump suit (1-hot encoding)
-        - phase of game (1-hoy encoding)
-        - talon size (int)
-        - if this player is leader (1-hot encoding)
-        - What is the status of each card of the deck (where it is, or if its location is unknown)
-
-        Important: This function should not include the move of this agent.
-        It should only include any earlier actions of other agents (so the action of the other agent in case that is the leader)
+    假设 features 与 max_values 都是 torch.Tensor（形状相同），返回归一化后的张量。
     """
-    # a list of all the features that consist the state feature set, of type np.ndarray
-    state_feature_list: list[int] = []
+    # 避免除以零，这里用 torch.where 作处理
+    normalized = torch.where(max_values > 0, features.float() / max_values.float(), torch.zeros_like(features, dtype=torch.float32))
+    return normalized
 
-    player_score = perspective.get_my_score()
-    # - points of this player (int)
-    player_points = player_score.direct_points
-    # - pending points of this player (int)
-    player_pending_points = player_score.pending_points
 
-    # add the features to the feature set
-    state_feature_list += [player_points]
-    state_feature_list += [player_pending_points]
+def get_state_feature_vector(perspective: PlayerPerspective) -> torch.Tensor:
+    """
+    使用原生 Tensor 操作构造状态向量（不包含 leader_move部分），按照以下部分组合：
+      1) 标量特征 (5维)
+      2) Trump suit (4维)
+      3) 游戏阶段 (2维)
+      4) Leader indicator (2维)
+      5) Deck knowledge (20张牌，每张6维 → 120维)
+      6) 历史回合信息 (5 回合，每回合 leader_move (20维) + winner (2维) → 110维)
+      7) 当前合法动作 (最多10个，每个20维 → 200维)
+      8) 额外特征 (2维)
+    
+    总计：5+4+2+2+120+110+200+2 = 445 维
+    """
+    feats = []
 
-    opponents_score = perspective.get_opponent_score()
-    # - points of the opponent (int)
-    opponents_points = opponents_score.direct_points
-    # - pending points of opponent (int)
-    opponents_pending_points = opponents_score.pending_points
+    # (1) 标量特征
+    my_score = perspective.get_my_score()
+    opp_score = perspective.get_opponent_score()
+    # 构造标量：直接放入一个 tensor 中
+    scalars = torch.tensor([
+        my_score.direct_points, my_score.pending_points,
+        opp_score.direct_points, opp_score.pending_points,
+        perspective.get_talon_size()
+    ], dtype=torch.float32)
+    max_vals = torch.tensor([66, 66, 66, 66, 20], dtype=torch.float32)
+    feats.append(normalize_scalar_features(scalars, max_vals))  # shape: [5]
 
-    # add the features to the feature set
-    state_feature_list += [opponents_points]
-    state_feature_list += [opponents_pending_points]
+    # (2) Trump suit
+    feats.append(get_one_hot_encoding_of_card_suit(perspective.get_trump_suit()))  # [4]
 
-    # - the trump suit (1-hot encoding)
-    trump_suit = perspective.get_trump_suit()
-    trump_suit_one_hot = get_one_hot_encoding_of_card_suit(trump_suit)
-    # add this features to the feature set
-    state_feature_list += trump_suit_one_hot
+    # (3) 游戏阶段
+    if perspective.get_phase() == GamePhase.TWO:
+        feats.append(torch.tensor([1, 0], dtype=torch.float32))
+    else:
+        feats.append(torch.tensor([0, 1], dtype=torch.float32))
 
-    # - phase of game (1-hot encoding)
-    game_phase_encoded = [1, 0] if perspective.get_phase() == GamePhase.TWO else [0, 1]
-    # add this features to the feature set
-    state_feature_list += game_phase_encoded
+    # (4) Leader indicator
+    if perspective.am_i_leader():
+        feats.append(torch.tensor([0, 1], dtype=torch.float32))
+    else:
+        feats.append(torch.tensor([1, 0], dtype=torch.float32))
 
-    # - talon size (int)
-    talon_size = perspective.get_talon_size()
-    # add this features to the feature set
-    state_feature_list += [talon_size]
-
-    # - if this player is leader (1-hot encoding)
-    i_am_leader = [0, 1] if perspective.am_i_leader() else [1, 0]
-    # add this features to the feature set
-    state_feature_list += i_am_leader
-
-    # gather all known deck information
+    # (5) Deck knowledge: 对20张牌，每张6维 → 120维
+    deck_encoding = []
     hand_cards = perspective.get_hand().cards
     trump_card = perspective.get_trump_card()
-    won_cards = perspective.get_won_cards().get_cards()
-    opponent_won_cards = perspective.get_opponent_won_cards().get_cards()
-    opponent_known_cards = perspective.get_known_cards_of_opponent_hand().get_cards()
-    # each card can either be i) on player's hand, ii) on player's won cards, iii) on opponent's hand, iv) on opponent's won cards
-    # v) be the trump card or vi) in an unknown position -> either on the talon or on the opponent's hand
-    # There are all different cases regarding card's knowledge, and we represent these 6 cases using one hot encoding vectors as seen bellow.
-
-    deck_knowledge_in_consecutive_one_hot_encodings: list[int] = []
+    my_won = perspective.get_won_cards().get_cards()
+    opp_won = perspective.get_opponent_won_cards().get_cards()
+    opp_known = perspective.get_known_cards_of_opponent_hand().get_cards()
 
     for card in SchnapsenDeckGenerator().get_initial_deck():
-        card_knowledge_in_one_hot_encoding: list[int]
-        # i) on player's hand
         if card in hand_cards:
-            card_knowledge_in_one_hot_encoding = [0, 0, 0, 0, 0, 1]
-        # ii) on player's won cards
-        elif card in won_cards:
-            card_knowledge_in_one_hot_encoding = [0, 0, 0, 0, 1, 0]
-        # iii) on opponent's hand
-        elif card in opponent_known_cards:
-            card_knowledge_in_one_hot_encoding = [0, 0, 0, 1, 0, 0]
-        # iv) on opponent's won cards
-        elif card in opponent_won_cards:
-            card_knowledge_in_one_hot_encoding = [0, 0, 1, 0, 0, 0]
-        # v) be the trump card
+            enc = torch.tensor([0, 0, 0, 0, 0, 1], dtype=torch.float32)
+        elif card in my_won:
+            enc = torch.tensor([0, 0, 0, 0, 1, 0], dtype=torch.float32)
+        elif card in opp_known:
+            enc = torch.tensor([0, 0, 0, 1, 0, 0], dtype=torch.float32)
+        elif card in opp_won:
+            enc = torch.tensor([0, 0, 1, 0, 0, 0], dtype=torch.float32)
         elif card == trump_card:
-            card_knowledge_in_one_hot_encoding = [0, 1, 0, 0, 0, 0]
-        # vi) in an unknown position as it is invisible to this player. Thus, it is either on the talon or on the opponent's hand
+            enc = torch.tensor([0, 1, 0, 0, 0, 0], dtype=torch.float32)
         else:
-            card_knowledge_in_one_hot_encoding = [1, 0, 0, 0, 0, 0]
-        # This list eventually develops to one long 1-dimensional numpy array of shape (120,)
-        deck_knowledge_in_consecutive_one_hot_encodings += card_knowledge_in_one_hot_encoding
-    # deck_knowledge_flattened: np.ndarray = np.concatenate(tuple(deck_knowledge_in_one_hot_encoding), axis=0)
+            enc = torch.tensor([1, 0, 0, 0, 0, 0], dtype=torch.float32)
+        deck_encoding.append(enc)
+    deck_tensor = torch.cat(deck_encoding)  # shape: [20*6 = 120]
+    feats.append(deck_tensor)
 
-    # add this features to the feature set
-    state_feature_list += deck_knowledge_in_consecutive_one_hot_encodings
+    # (6) 历史回合信息：5回合，每回合 leader_move (20) + winner (2) = 22维，共 110维
+    history_list = []
+    max_history_rounds = 5
+    game_history = perspective.get_game_history()
+    for i in range(max_history_rounds):
+        idx = -(i + 2)
+        if len(game_history) + idx >= 0:
+            _, trick = game_history[idx]
+            if trick and not trick.is_trump_exchange():
+                leader_move_tensor = get_move_feature_vector(trick.leader_move)  # [20]
+                winner_tensor = torch.tensor(determine_winner_of_trick(trick, perspective), dtype=torch.float32)  # [2]
+                history_list.append(torch.cat([leader_move_tensor, winner_tensor]))  # [22]
+            else:
+                history_list.append(torch.zeros(22, dtype=torch.float32))
+        else:
+            history_list.append(torch.zeros(22, dtype=torch.float32))
+    history_tensor = torch.cat(history_list)  # [5*22 = 110]
+    feats.append(history_tensor)
 
-    return state_feature_list
+    # (7) 当前合法动作：最多10个，每个20维 → 200维
+    legal_moves = perspective.valid_moves()
+    actions_list = []
+    max_actions = 10
+    for i in range(max_actions):
+        if i < len(legal_moves):
+            actions_list.append(get_move_feature_vector(legal_moves[i]))  # [20]
+        else:
+            actions_list.append(torch.zeros(20, dtype=torch.float32))
+    actions_tensor = torch.cat(actions_list)  # [200]
+    feats.append(actions_tensor)
+
+    # (8) 额外特征：能否 exchange jack 与能否打出 trump → 2维
+    exch = 1 if can_exchange_jack_now(perspective) else 0
+    trump_flag = 1 if can_play_trump_now(perspective) else 0
+    extras = torch.tensor([exch, trump_flag], dtype=torch.float32)  # [2]
+    feats.append(extras)
+
+    # 将所有部分串联起来
+    full_state = torch.cat(feats)  # 5 + 4 + 2 + 2 + 120 + 110 + 200 + 2 = 445 维
+    return full_state
+
+
+def determine_winner_of_trick(trick: Trick, perspective: PlayerPerspective) -> [int]:
+    """
+    此处仅作为示例。实际需要根据 trick 或游戏引擎返回赢家信息。
+    这里固定返回 [0, 0]。
+    """
+    return [0, 0]
+
+
+def can_exchange_jack_now(perspective: PlayerPerspective) -> bool:
+    if not perspective.am_i_leader():
+        return False
+    if perspective.get_phase() != GamePhase.ONE:
+        return False
+    if perspective.get_talon_size() < 2:
+        return False
+    jack_card = Card.get_card(Rank.JACK, perspective.get_trump_suit())
+    return jack_card in perspective.get_hand().cards
+
+
+def can_play_trump_now(perspective: PlayerPerspective) -> bool:
+    tr_suit = perspective.get_trump_suit()
+    for c in perspective.get_hand().cards:
+        if c.suit == tr_suit:
+            return True
+    return False
