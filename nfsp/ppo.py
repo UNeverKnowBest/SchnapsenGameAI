@@ -45,6 +45,10 @@ class PPOConfig:
     entropy_max: float = 0.5
     reward: str = "win"
     deterministic: bool = False
+    rollout_device: str = "same"
+    adaptive_lr: bool = False
+    lr_min: float = 0.00001
+    lr_max: float = 0.001
 
     def validate(self):
         for key in ("num_envs", "workers", "torch_threads", "epochs", "minibatch_size"):
@@ -69,6 +73,13 @@ class PPOConfig:
             raise ValueError("adaptive entropy coefficient must start inside its bounds")
         if self.reward not in ("win", "game_points"):
             raise ValueError("reward must be win or game_points")
+        if self.rollout_device not in ("same", "cpu"):
+            raise ValueError("rollout_device must be same or cpu")
+        if not (math.isfinite(self.lr_min) and math.isfinite(self.lr_max)
+                and 0 < self.lr_min <= self.lr_max):
+            raise ValueError("invalid learning rate bounds")
+        if self.adaptive_lr and not self.lr_min <= self.lr <= self.lr_max:
+            raise ValueError("adaptive learning rate must start inside bounds")
         return self
 
     def to_dict(self):
@@ -99,10 +110,10 @@ class ActorCritic(nn.Module):
         return self.actor(hidden), self.critic(hidden).squeeze(-1)
 
 
-def legal_distribution(logits, masks):
-    if not masks.any(dim=-1).all():
+def legal_distribution(logits, masks, validate=True):
+    if validate and not masks.any(dim=-1).all():
         raise ValueError("cannot act without a legal action")
-    return torch.distributions.Categorical(logits=masked_logits(logits, masks))
+    return torch.distributions.Categorical(logits=masked_logits(logits, masks), validate_args=False)
 
 
 def normalized_entropy(distribution, masks):
@@ -136,6 +147,8 @@ class PPOTrainer:
         torch.use_deterministic_algorithms(config.deterministic)
         torch.manual_seed(config.seed)
         self.model = ActorCritic(config.hidden).to(self.device)
+        self.rollout_model = (copy.deepcopy(self.model).cpu().requires_grad_(False)
+                              if config.rollout_device == "cpu" and self.device.type != "cpu" else self.model)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr, eps=1e-5)
         self.rng = np.random.default_rng(config.seed + 400)
         self.entropy_coef = config.entropy_coef
@@ -148,6 +161,9 @@ class PPOTrainer:
         if count <= 0:
             raise ValueError("count must be positive")
         c, started = self.config, perf_counter()
+        if self.rollout_model is not self.model:
+            self.rollout_model.load_state_dict(self.model.state_dict())
+        actor_device = next(self.rollout_model.parameters()).device
         if count != self.width:
             self.env, self.width = BatchEnv(count, c.workers), count
         t = perf_counter()
@@ -159,11 +175,13 @@ class PPOTrainer:
             lanes = np.flatnonzero(players >= 0)
             legal = masks[lanes].astype(np.bool_)
             t = perf_counter()
-            logits, values = self.model.both(torch.from_numpy(states[lanes]).to(self.device))
-            dist = legal_distribution(logits, torch.from_numpy(legal).to(self.device))
-            chosen = categorical(dist.probs.cpu().numpy(), self.rng)
-            logs = dist.log_prob(torch.from_numpy(chosen).to(self.device)).cpu().numpy()
-            values = values.cpu().numpy()
+            logits, values = self.rollout_model.both(torch.from_numpy(states[lanes]).to(actor_device))
+            dist = legal_distribution(logits, torch.from_numpy(legal).to(actor_device), validate=False)
+            # Transfer probabilities, log probabilities and values together; sample on CPU.
+            packed = torch.cat((dist.probs, dist.logits, values[:, None]), dim=1).cpu().numpy()
+            chosen = categorical(packed[:, :ACTION_DIM], self.rng)
+            logs = packed[np.arange(len(lanes)), ACTION_DIM + chosen].copy()
+            values = packed[:, -1].copy()
             inference_seconds += perf_counter() - t
             chunks.append(dict(states=states[lanes].copy(), masks=legal, actions=chosen,
                                old_log_probs=logs, values=values))
@@ -198,7 +216,9 @@ class PPOTrainer:
 
     def update(self, batch):
         c = self.config
-        data = {k: torch.from_numpy(v).to(self.device) for k, v in batch.items()}
+        keys = ("states", "masks", "actions", "old_log_probs", "advantages", "returns")
+        data = {k: torch.from_numpy(batch[k]).to(self.device) for k in keys}
+        used_lr = self.optimizer.param_groups[0]["lr"]
         advantages = data["advantages"]
         data["advantages"] = (advantages - advantages.mean()) / advantages.std(unbiased=False).clamp_min(1e-8)
         n, records, stopped = len(advantages), [], False
@@ -208,7 +228,7 @@ class PPOTrainer:
                 idx = torch.from_numpy(permutation[start:start + c.minibatch_size]).to(self.device)
                 logits, values = self.model.both(data["states"][idx])
                 masks = data["masks"][idx]
-                dist = legal_distribution(logits, masks)
+                dist = legal_distribution(logits, masks, validate=False)
                 log_ratio = dist.log_prob(data["actions"][idx]) - data["old_log_probs"][idx]
                 ratio = log_ratio.exp()
                 kl = ((ratio - 1) - log_ratio).mean()
@@ -221,7 +241,7 @@ class PPOTrainer:
                 policy_loss = -torch.minimum(ratio * adv, ratio.clamp(1 - c.clip, 1 + c.clip) * adv).mean()
                 value_loss = .5 * (values - data["returns"][idx]).square().mean()
                 ent, choices = normalized_entropy(dist, masks)
-                entropy = ent[choices].mean() if choices.any() else ent.sum() * 0
+                entropy = (ent * choices).sum() / choices.sum().clamp_min(1)
                 loss = policy_loss + c.value_coef * value_loss - self.entropy_coef * entropy
                 if not torch.isfinite(loss):
                     raise FloatingPointError("nonfinite PPO loss")
@@ -230,33 +250,49 @@ class PPOTrainer:
                 norm = nn.utils.clip_grad_norm_(self.model.parameters(), c.grad_clip, error_if_nonfinite=True)
                 self.optimizer.step()
                 self.updates += 1
-                records.append([policy_loss.item(), value_loss.item(), entropy.item(), kl.item(),
-                                ((ratio - 1).abs() > c.clip).float().mean().item(), norm.item()])
+                records.append(torch.stack((policy_loss.detach(), value_loss.detach(), entropy.detach(), kl.detach(),
+                                            ((ratio - 1).abs() > c.clip).float().mean().detach(), norm.detach())))
             if stopped:
                 break
         # Controller measures the final policy, once per wave, on choice states only.
-        entropy_sum, choice_count, final_values = 0., 0, []
+        entropy_sum, choice_count, final_values, kl_sum = 0., 0, [], 0.
         with torch.no_grad():
             for start in range(0, n, c.minibatch_size):
                 x, masks = data["states"][start:start+c.minibatch_size], data["masks"][start:start+c.minibatch_size]
                 logits, values = self.model.both(x)
-                ent, choices = normalized_entropy(legal_distribution(logits, masks), masks)
-                entropy_sum += ent[choices].sum().item()
-                choice_count += int(choices.sum().item())
+                dist = legal_distribution(logits, masks, validate=False)
+                ent, choices = normalized_entropy(dist, masks)
+                entropy_sum = entropy_sum + (ent * choices).sum()
+                choice_count = choice_count + choices.sum()
+                log_ratio = dist.log_prob(data["actions"][start:start+c.minibatch_size]) - data["old_log_probs"][start:start+c.minibatch_size]
+                kl_sum = kl_sum + (log_ratio.exp() - 1 - log_ratio).sum()
                 final_values.append(values)
             values = torch.cat(final_values)
             variance = data["returns"].var(unbiased=False).item()
             explained = 1 - (data["returns"] - values).var(unbiased=False).item() / variance if variance > 1e-8 else None
-        measured = entropy_sum / choice_count if choice_count else None
+        choice_count = int(choice_count.item())
+        measured = entropy_sum.item() / choice_count if choice_count else None
+        final_kl = kl_sum.item() / n
+        if not math.isfinite(final_kl):
+            raise FloatingPointError("nonfinite final PPO KL")
+        next_lr = used_lr
+        if c.adaptive_lr:
+            if stopped or final_kl > c.target_kl:
+                next_lr = max(c.lr_min, used_lr / 1.5)
+            elif final_kl < c.target_kl / 2:
+                next_lr = min(c.lr_max, used_lr * 1.1)
+            for group in self.optimizer.param_groups:
+                group["lr"] = next_lr
         used_coef = self.entropy_coef
         if c.adaptive_entropy and measured is not None:
             self.entropy_coef = float(np.clip(self.entropy_coef * math.exp(c.entropy_lr * (c.target_entropy - measured)),
                                               c.entropy_min, c.entropy_max))
         names = ("policy_loss", "value_loss", "entropy", "approx_kl", "clip_fraction", "grad_norm")
-        metrics = dict(zip(names, np.mean(records, axis=0).tolist())) if records else dict.fromkeys(names)
+        metrics = dict(zip(names, torch.stack(records).mean(0).cpu().tolist())) if records else dict.fromkeys(names)
         return {**metrics, "normalized_entropy": measured, "entropy_coef_used": used_coef,
                 "entropy_coef_next": self.entropy_coef, "explained_variance": explained,
-                "optimizer_steps": len(records), "early_stop_kl": stopped}
+                "optimizer_steps": len(records), "early_stop_kl": stopped,
+                "final_kl": final_kl, "lr_used": used_lr, "lr_next": next_lr}
 
     def train_wave(self, count=None):
         started = perf_counter()
