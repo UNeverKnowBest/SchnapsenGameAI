@@ -1,0 +1,72 @@
+# Engine and compatibility guide
+
+Moved from the original project README. These are previously recorded checks, not new checks from the training report.
+
+The independent deterministic Rust Schnapsen engine lives in `engine/`. The following sections document its rules compatibility and standalone tooling.
+
+The engine targets the external [VU course Schnapsen engine at commit ca0b3d9](https://github.com/intelligent-systems-course/schnapsen/tree/ca0b3d9cd9c3922a10303536e28f1266fe3a2c0d) (declared package version 0.0.5). **The original project's installed version cannot be established.** This is a deliberate pinned compatibility target selected from upstream history before Rust implementation. See [the manifest](../compatibility/manifest.json) for evidence and the comparison with current upstream.
+
+## Build and use
+
+Requires Rust/Cargo (tested with Rust 1.98.1) and Python 3.10+ for oracle checks only (tested with Python 3.13.5). The compiled engine has no Python runtime dependency.
+
+```sh
+cargo test --locked --manifest-path engine/Cargo.toml
+cargo build --release --locked --manifest-path engine/Cargo.toml
+cargo run --release --locked --manifest-path engine/Cargo.toml -- evaluate 100000 42 4
+cargo bench --locked --manifest-path engine/Cargo.toml --bench independent_games
+```
+
+Evaluation runs uniform-random policies for both seats, reporting wins, game points, award distribution, actions, tricks, marriages, exchanges and throughput. Game seeds are independent of worker count, and statistics are identical for the same seed/game count across worker counts. Seat 0 leads initially, so these are seat-specific results, not a balanced comparison between different policies. Set `SCHNAPSEN_BENCH_GAMES` to change benchmark size.
+
+On this Windows workspace a local toolchain was installed in ignored `.tools/`, without changing the user's persistent PATH. To use it in PowerShell:
+
+```powershell
+$env:RUSTUP_HOME = "$PWD/.tools/rustup"
+$env:CARGO_HOME = "$PWD/.tools/cargo"
+$env:PATH = "$PWD/.tools/cargo/bin;$env:PATH"
+```
+
+A GNU Windows toolchain also needs a working MinGW GCC linker (this machine uses `C:/msys64/ucrt64/bin`). A normal installed MSVC or Unix Rust toolchain can build the crate too; those platforms were not locally validated.
+
+## Differential validation
+
+```sh
+python compatibility/python_oracle/bootstrap.py
+python compatibility/python_oracle/test_adapter.py
+python compatibility/differential/run.py --games 10000 --report compatibility/differential/report.json
+```
+
+The adapter imports only the pinned reference's standard-library engine/deck modules. No ML dependencies are needed for these checks. The ignored reference checkout stays under `compatibility/python_oracle/upstream/` and is verified against the manifest before use.
+
+`--mode states` runs privileged engine-state comparison; `--mode observations` runs player-visible comparison. Default `all` runs both. Each request supplies an explicit deck and semantic actions, so Python/Rust RNG differences cannot mask or create rule mismatches. Tests preserve legal-move order as well as compare normalized sets. Failures save the exact input and both traces for replay. See [the protocol](../compatibility/PROTOCOL.md).
+
+To run upstream core tests unchanged, install its dependencies in a separate environment:
+
+```sh
+python -m venv compatibility/.venv
+# Activate the environment, or invoke its Python executable directly.
+python -m pip install -e "compatibility/python_oracle/upstream[test]"
+python -m pytest compatibility/python_oracle/upstream/tests/test_schnapsen_implementation.py compatibility/python_oracle/upstream/tests/test_game.py compatibility/python_oracle/upstream/tests/test_deck.py compatibility/python_oracle/upstream/tests/test_repr.py compatibility/python_oracle/upstream/tests/bots/test_randbot.py
+```
+
+On Windows that interpreter is `compatibility/.venv/Scripts/python.exe`; on Unix it is `compatibility/.venv/bin/python`.
+
+## API and boundaries
+
+`Game::from_deck` takes an explicit 20-card permutation. `legal_moves` and `step` implement deterministic single-action progression; `outcome` returns winner, game points and winning score. A marriage/exchange is a semantic move variant, not a Python class clone. `Game::clone` supports independent simulations; `from_position` supports structurally validated constructed scenarios with history reset.
+
+`PlayerObservation` contains owned public values and perspective history. `Position`, `EngineSnapshot` and `Record` are privileged diagnostics and must not be passed to agents. The Rust `Bot` trait receives only observations and supports exchange/game-end notifications. The JSON Lines executable and Python adapter share the [documented canonical format](../compatibility/PROTOCOL.md).
+
+[Legacy API notes](../compatibility/LEGACY_API.md) document the old bot contract, action-index mapping and the unexplained required `eta` callback argument. The subsequent NFSP implementation adds a separate Python extension in `native/` and training package in `nfsp/`; it does not recreate the old runtime bot callback API. See [NFSP feature and checkpoint compatibility](NFSP.md).
+
+## Recorded validation
+
+* 24 handwritten oracle-verified scenarios, checked into golden fixtures.
+* 12 Rust tests, including 1,520 distinct card-pair/trump winner cases, 2,000 full invariant games, hidden-information checks, callbacks and worker determinism.
+* 40 upstream tests passed unchanged.
+* Adapter verified against actual reference bot callbacks in 100 complete games.
+* **10,000 complete differential trajectories, zero unexplained mismatches:** 161,510 state records; 171,517 observations; 881,781 history views.
+* Rust formatting and Clippy checks pass.
+
+See [the machine-readable report](../compatibility/differential/report.json), [coverage and exclusions](../compatibility/COVERAGE.md), and [benchmark record](../engine/benches/RESULTS.md). This is finite compatibility evidence for the pinned standard-game contract, not a proof of all trajectories or confirmation of the unknown historical installation.
