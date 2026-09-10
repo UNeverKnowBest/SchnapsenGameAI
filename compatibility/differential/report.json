@@ -1,0 +1,27 @@
+{
+  "reference": "ca0b3d9cd9c3922a10303536e28f1266fe3a2c0d",
+  "seed": 20250910,
+  "mode": "all",
+  "coverage": {
+    "state_records_compared": 161510,
+    "observations_compared": 171517,
+    "history_views_compared": 881781,
+    "handwritten_scenarios": 24,
+    "play_actions": 144706,
+    "phase_1_records": 90628,
+    "marriage_actions": 4092,
+    "award_3": 1987,
+    "winner_0": 5792,
+    "complete_trajectories": 10000,
+    "phase_2_records": 60821,
+    "award_1": 4577,
+    "award_2": 3436,
+    "winner_1": 4208,
+    "exchange_actions": 2651,
+    "last_trick_below_66": 956
+  },
+  "unexplained_mismatches": 0,
+  "seconds": 82.07611589999942,
+  "python": "3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 16:37:03) [MSC v.1929 64 bit (AMD64)]",
+  "engine": "C:\\Users\\guosh\\project\\SchnapsenGameAI\\engine\\target\\release\\schnapsen-engine.exe"
+}

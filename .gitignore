@@ -1,1 +1,7 @@
 *.pth
+/.tools/
+/engine/target/
+/compatibility/python_oracle/upstream/
+/compatibility/.venv/
+**/__pycache__/
+/compatibility/differential/failures/

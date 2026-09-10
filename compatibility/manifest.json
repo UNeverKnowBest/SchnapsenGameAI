@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "repository": "https://github.com/intelligent-systems-course/schnapsen",
+    "commit": "ca0b3d9cd9c3922a10303536e28f1266fe3a2c0d",
+    "commit_date": "2025-01-06T20:52:54Z",
+    "package": "schnapsen",
+    "package_version": "0.0.5",
+    "import": "schnapsen.game.SchnapsenGamePlayEngine",
+    "python_requires": ">=3.10",
+    "python_tested_here": "3.13.5",
+    "related_tag": "v0.5",
+    "related_tag_commit": "fe93f6ec06eff2edb55be2c45f2d959daba346ec",
+    "modules": [
+      "src/schnapsen/game.py",
+      "src/schnapsen/deck.py"
+    ],
+    "tests": [
+      "tests/test_schnapsen_implementation.py",
+      "tests/test_game.py",
+      "tests/test_deck.py",
+      "tests/test_repr.py"
+    ],
+    "tag_difference": "One docstring correction; no executable engine differences.",
+    "module_git_blobs": {
+      "src/schnapsen/game.py": "26791bb72f19f28fe60d20d72fee862986d469da",
+      "src/schnapsen/deck.py": "b5b7276eba5ff4cfecc3b6a3f4e49a0165373d3a"
+    }
+  },
+  "historical_identification": {
+    "status": "unconfirmed; deliberate compatibility target",
+    "project_commit": "52c99fe",
+    "project_commit_date": "2025-01-17T18:50:48Z",
+    "original_package_version": null,
+    "original_python_version": null,
+    "evidence": "All five project commits inspected: no dependency manifest, lockfile, engine source, or installation metadata. No installed schnapsen distribution. Tracked cpython-310 bytecode suggests Python 3.10 but establishes no exact version.",
+    "selection": "Latest upstream commit before the latest historical project commit; explicit substitute target, not proof of the originally installed engine."
+  },
+  "upstream_comparison": {
+    "inspected_head": "0d0f1900f4cb6a6dc03c18a2b381bc31105c6ce0",
+    "checked_on": "2026-09-10",
+    "differences": "game.py and tests unchanged. deck.py docstring spelling fix. bots/ml_bot.py swaps zero-filled feature sub-vector lengths for None moves (total vector unchanged). No executable rule differences."
+  },
+  "contract": {
+    "initialization": "Explicit 20-card permutation; alternating first ten cards to players 0/1; remaining ten in talon draw order; bottom defines trump.",
+    "rng": "Reference uses random.Random.shuffle. Python/Rust RNG seed equivalence is not required or claimed.",
+    "scope": "Reachable standard Schnapsen states, semantic actions, ordered legal moves, scoring, terminal results, player observations and perspective history. No talon closing.",
+    "normalization": "Card IDs 0..19: suits HEARTS, CLUBS, SPADES, DIAMONDS; ranks JACK, QUEEN, KING, TEN, ACE. Actions tagged play(card), marriage(suit), exchange(suit). Set-valued seen_cards sorted; hand/talon/won-card/legal order preserved.",
+    "errors": "Rust invalid inputs fail atomically. Python exception text, repr/eval, malformed duplicate-card states, generic 52-card containers and class hierarchy are not compatibility targets."
+  }
+}
