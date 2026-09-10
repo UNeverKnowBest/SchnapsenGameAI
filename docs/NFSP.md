@@ -1,6 +1,6 @@
 # Rust 批量 NFSP
 
-训练实现位于 `nfsp/`，Rust 绑定位于 `native/`。根目录 `main.py` 是命令入口。历史 `DQN_bot.py`、`DQNMultithread.py`、`storage.py`、`model/DQN.py` 仅供参考，不参与新的训练流程。
+训练实现位于 `nfsp/`，Rust 绑定位于 `native/`。根目录 `main.py` 是命令入口。未使用的历史 Python DQN、特征、缓冲区实现已删除；当前 NFSP/DQN 对比实现仍在 `nfsp/`。一键训练、基线评估与性能测试见 [EXPERIMENT.md](EXPERIMENT.md)。
 
 ## 算法定义
 

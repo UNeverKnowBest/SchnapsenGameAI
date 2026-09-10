@@ -1,0 +1,175 @@
+{
+  "reference_commit": "bf97c2ae41b15a46ef9024e6155bfd9acd6c0b9f",
+  "config": {
+    "seed": 42,
+    "num_envs": 256,
+    "workers": 1,
+    "device": "cuda",
+    "torch_threads": 1,
+    "hidden": [
+      256,
+      128,
+      64
+    ],
+    "lr": 0.0003,
+    "gamma": 1.0,
+    "gae_lambda": 0.95,
+    "clip": 0.2,
+    "value_coef": 0.5,
+    "grad_clip": 0.5,
+    "epochs": 4,
+    "minibatch_size": 512,
+    "target_kl": 0.02,
+    "entropy_coef": 0.05,
+    "adaptive_entropy": true,
+    "target_entropy": 0.8,
+    "entropy_lr": 0.05,
+    "entropy_min": 0.001,
+    "entropy_max": 0.5,
+    "reward": "win",
+    "deterministic": true,
+    "rollout_device": "same",
+    "adaptive_lr": false,
+    "lr_min": 1e-05,
+    "lr_max": 0.001
+  },
+  "summary": [
+    {
+      "device": "cpu",
+      "original_games_per_second": 1055.1039908549476,
+      "optimized_games_per_second": 1084.3788658778767,
+      "speed_ratio": 1.0277459617977633,
+      "equal_decisions_and_updates": true
+    },
+    {
+      "device": "cuda",
+      "original_games_per_second": 1139.9243185979356,
+      "optimized_games_per_second": 1260.6772064942143,
+      "speed_ratio": 1.105930618310521,
+      "equal_decisions_and_updates": true
+    }
+  ],
+  "measurements": [
+    {
+      "version": "original",
+      "device": "cpu",
+      "repeat": 0,
+      "seconds": 1.921215399997891,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1065.9918716049476
+    },
+    {
+      "version": "original",
+      "device": "cuda",
+      "repeat": 0,
+      "seconds": 1.7933115000014368,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1142.0213387347146
+    },
+    {
+      "version": "optimized",
+      "device": "cuda",
+      "repeat": 0,
+      "seconds": 1.509046400002262,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1357.1484614369247
+    },
+    {
+      "version": "optimized",
+      "device": "cpu",
+      "repeat": 0,
+      "seconds": 1.8690206999999646,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1095.7610046801722
+    },
+    {
+      "version": "optimized",
+      "device": "cuda",
+      "repeat": 1,
+      "seconds": 1.6443700999989233,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1245.4617120570006
+    },
+    {
+      "version": "original",
+      "device": "cpu",
+      "repeat": 1,
+      "seconds": 1.9410408999974607,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1055.1039908549476
+    },
+    {
+      "version": "optimized",
+      "device": "cpu",
+      "repeat": 1,
+      "seconds": 1.901988599998731,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1076.7677577044187
+    },
+    {
+      "version": "original",
+      "device": "cuda",
+      "repeat": 1,
+      "seconds": 1.7966105000014068,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1139.9243185979356
+    },
+    {
+      "version": "original",
+      "device": "cpu",
+      "repeat": 2,
+      "seconds": 1.9421245000012277,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1054.5153001255612
+    },
+    {
+      "version": "original",
+      "device": "cuda",
+      "repeat": 2,
+      "seconds": 1.8667107999972359,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1097.1169181659166
+    },
+    {
+      "version": "optimized",
+      "device": "cpu",
+      "repeat": 2,
+      "seconds": 1.8886388000028091,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1084.3788658778767
+    },
+    {
+      "version": "optimized",
+      "device": "cuda",
+      "repeat": 2,
+      "seconds": 1.6245237000002817,
+      "games": 2048,
+      "decisions": 32054,
+      "updates": 264,
+      "games_per_second": 1260.6772064942143
+    }
+  ],
+  "methodology": "3 randomized repeats per device/version; warm-up excluded; 2048 games, width 256, one CPU/Rust thread, 4 epochs, minibatch 512, adaptive LR off in both. Deterministic mode. Throughput includes collect and update; numerical trajectories may differ across implementations/devices."
+}
