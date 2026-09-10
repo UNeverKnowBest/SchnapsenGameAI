@@ -339,6 +339,10 @@ impl Game {
         }
     }
     pub fn observation(&self, player: Player) -> PlayerObservation {
+        self.observation_recent(player, usize::MAX)
+    }
+    /// Public observation retaining only the most recent completed history entries.
+    pub fn observation_recent(&self, player: Player, history_limit: usize) -> PlayerObservation {
         let terminal = self.outcome().is_some();
         let lead = if player != self.position.leader {
             self.pending
@@ -349,6 +353,7 @@ impl Game {
         let mut history: Vec<_> = self
             .history
             .iter()
+            .skip(self.history.len().saturating_sub(history_limit))
             .map(|frame| {
                 let (lead, exchange) = match &frame.trick {
                     Trick::Regular { leader_move, .. } => (Some(*leader_move), false),

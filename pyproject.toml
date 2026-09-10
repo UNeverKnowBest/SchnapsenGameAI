@@ -1,0 +1,24 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "schnapsen-nfsp"
+version = "0.2.0"
+description = "Batched Rust self-play with PyTorch Neural Fictitious Self-Play"
+requires-python = ">=3.10"
+dependencies = ["numpy>=2,<3", "torch>=2.9,<3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "maturin>=1.9,<2"]
+
+[project.scripts]
+schnapsen-nfsp = "nfsp.cli:main"
+
+[tool.maturin]
+manifest-path = "native/Cargo.toml"
+python-source = "."
+module-name = "nfsp._native"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

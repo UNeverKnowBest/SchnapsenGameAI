@@ -5,3 +5,14 @@
 /compatibility/.venv/
 **/__pycache__/
 /compatibility/differential/failures/
+
+/.venv/
+/native/target/
+/target/
+/runs/
+/checkpoint/
+/.pytest_cache/
+*.pyd
+*.so
+*.egg-info/
+*.pt

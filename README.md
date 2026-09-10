@@ -1,6 +1,8 @@
 # SchnapsenGameAI
 
-An independent deterministic Rust Schnapsen engine now lives in `engine/`. The historical Python NFSP/DQN agent files remain unchanged in their original locations.
+NFSP training now uses a Rust multithreaded batch environment and PyTorch batched inference/learning. See [the training guide](docs/NFSP.md) for installation, algorithm details, training, checkpoints and evaluation. Run `python -m nfsp --help` after building the extension. Historical Python bot/buffer/model files remain as reference; the new entry point is `main.py` or `python -m nfsp`.
+
+The independent deterministic Rust Schnapsen engine lives in `engine/`. The following sections document its rules compatibility and standalone tooling.
 
 The engine targets the external [VU course Schnapsen engine at commit ca0b3d9](https://github.com/intelligent-systems-course/schnapsen/tree/ca0b3d9cd9c3922a10303536e28f1266fe3a2c0d) (declared package version 0.0.5). **The original project's installed version cannot be established.** This is a deliberate pinned compatibility target selected from upstream history before Rust implementation. See [the manifest](compatibility/manifest.json) for evidence and the comparison with current upstream.
 
@@ -56,7 +58,7 @@ On Windows that interpreter is `compatibility/.venv/Scripts/python.exe`; on Unix
 
 `PlayerObservation` contains owned public values and perspective history. `Position`, `EngineSnapshot` and `Record` are privileged diagnostics and must not be passed to agents. The Rust `Bot` trait receives only observations and supports exchange/game-end notifications. The JSON Lines executable and Python adapter share the [documented canonical format](compatibility/PROTOCOL.md).
 
-[Legacy API notes](compatibility/LEGACY_API.md) document the old bot contract, action-index mapping and the unexplained required `eta` callback argument. No NFSP/PPO/neural code, Python bindings, distributed rollouts or legacy runtime adapter were added.
+[Legacy API notes](compatibility/LEGACY_API.md) document the old bot contract, action-index mapping and the unexplained required `eta` callback argument. The subsequent NFSP implementation adds a separate Python extension in `native/` and training package in `nfsp/`; it does not recreate the old runtime bot callback API. See [NFSP feature and checkpoint compatibility](docs/NFSP.md).
 
 ## Recorded validation
 

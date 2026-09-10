@@ -1,0 +1,17 @@
+{
+  "seed": 42,
+  "num_envs": 16,
+  "workers": 4,
+  "hidden": [
+    64,
+    64
+  ],
+  "eta": 0.5,
+  "replay_capacity": 2048,
+  "reservoir_capacity": 2048,
+  "batch_size": 64,
+  "rl_warmup": 64,
+  "sl_warmup": 64,
+  "learn_every": 64,
+  "target_every": 4
+}

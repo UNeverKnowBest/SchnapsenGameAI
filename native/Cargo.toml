@@ -1,0 +1,14 @@
+[package]
+name = "schnapsen-nfsp-native"
+version = "0.2.0"
+edition = "2024"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+schnapsen-engine = { path = "../engine" }
+pyo3 = { version = "0.27", features = ["extension-module", "generate-import-lib"] }
+numpy = "0.27"
+rayon = "1.11"

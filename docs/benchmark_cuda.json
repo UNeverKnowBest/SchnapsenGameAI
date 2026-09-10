@@ -1,0 +1,143 @@
+{
+  "python": "3.13.5",
+  "torch": "2.9.1+cu128",
+  "device": "cuda",
+  "logical_cpus": 32,
+  "gpu": "NVIDIA GeForce RTX 4080 Laptop GPU",
+  "seed": 42,
+  "results": [
+    {
+      "num_envs": 1,
+      "workers": 1,
+      "games": 1024,
+      "decisions": 15885,
+      "seconds": 16.44093150000117,
+      "games_per_second": 62.283575599103195,
+      "decisions_per_second": 966.1861312419476,
+      "rl_updates": [
+        60,
+        60
+      ],
+      "sl_updates": [
+        36,
+        48
+      ],
+      "environment_seconds": 1.6027317999396473,
+      "inference_seconds": 11.576377800111004,
+      "collection_overhead_seconds": 1.7331444999763335,
+      "buffer_seconds": 0.09013849998700607,
+      "update_seconds": 1.3744880999893212
+    },
+    {
+      "num_envs": 1,
+      "workers": 8,
+      "games": 1024,
+      "decisions": 15885,
+      "seconds": 15.441129900000305,
+      "games_per_second": 66.31639048642288,
+      "decisions_per_second": 1028.7459598406517,
+      "rl_updates": [
+        60,
+        60
+      ],
+      "sl_updates": [
+        36,
+        48
+      ],
+      "environment_seconds": 1.5643571000582597,
+      "inference_seconds": 10.955320200124333,
+      "collection_overhead_seconds": 1.5949403998256457,
+      "buffer_seconds": 0.07701499999711814,
+      "update_seconds": 1.1926082999725622
+    },
+    {
+      "num_envs": 64,
+      "workers": 1,
+      "games": 1024,
+      "decisions": 16135,
+      "seconds": 1.650958799998989,
+      "games_per_second": 620.2456415027601,
+      "decisions_per_second": 9773.108814108433,
+      "rl_updates": [
+        62,
+        63
+      ],
+      "sl_updates": [
+        46,
+        46
+      ],
+      "environment_seconds": 0.05832959998042497,
+      "inference_seconds": 0.7211522000070545,
+      "collection_overhead_seconds": 0.06088980001004529,
+      "buffer_seconds": 0.012384699995891424,
+      "update_seconds": 0.79678949999834
+    },
+    {
+      "num_envs": 64,
+      "workers": 8,
+      "games": 1024,
+      "decisions": 16135,
+      "seconds": 1.431877999999415,
+      "games_per_second": 715.1447260174529,
+      "decisions_per_second": 11268.418119425392,
+      "rl_updates": [
+        62,
+        63
+      ],
+      "sl_updates": [
+        46,
+        46
+      ],
+      "environment_seconds": 0.05637039998509863,
+      "inference_seconds": 0.6612957999659557,
+      "collection_overhead_seconds": 0.07149900005242671,
+      "buffer_seconds": 0.012958499997694162,
+      "update_seconds": 0.6281707999969512
+    },
+    {
+      "num_envs": 256,
+      "workers": 1,
+      "games": 1024,
+      "decisions": 15968,
+      "seconds": 0.8432237999986683,
+      "games_per_second": 1214.3869753221118,
+      "decisions_per_second": 18936.84689642918,
+      "rl_updates": [
+        62,
+        62
+      ],
+      "sl_updates": [
+        46,
+        46
+      ],
+      "environment_seconds": 0.04790069999580737,
+      "inference_seconds": 0.1678538999913144,
+      "collection_overhead_seconds": 0.03371920001518447,
+      "buffer_seconds": 0.013837800001056166,
+      "update_seconds": 0.5773267000004125
+    },
+    {
+      "num_envs": 256,
+      "workers": 8,
+      "games": 1024,
+      "decisions": 15968,
+      "seconds": 0.9531823999986955,
+      "games_per_second": 1074.2959584665027,
+      "decisions_per_second": 16752.30260233703,
+      "rl_updates": [
+        62,
+        62
+      ],
+      "sl_updates": [
+        46,
+        46
+      ],
+      "environment_seconds": 0.02597099999366037,
+      "inference_seconds": 0.20470629999908851,
+      "collection_overhead_seconds": 0.03532910000649281,
+      "buffer_seconds": 0.014648699996541836,
+      "update_seconds": 0.6701079000013124
+    }
+  ],
+  "note": "End-to-end training, excluding checkpoint/evaluation. Different wave sizes change update timing and sampled trajectories; this is throughput evidence, not equal learning quality."
+}

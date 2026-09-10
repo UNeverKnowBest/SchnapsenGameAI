@@ -1,0 +1,86 @@
+{
+  "total_games": 20256,
+  "total_decisions": 280836,
+  "rl_updates": [
+    274,
+    274
+  ],
+  "sl_updates": [
+    258,
+    258
+  ],
+  "replay_sizes": [
+    100000,
+    100000
+  ],
+  "reservoir_sizes": [
+    13386,
+    13633
+  ],
+  "reservoir_seen": [
+    13386,
+    13633
+  ],
+  "training_seconds": 14.770832900001551,
+  "games_per_second_excluding_io_eval": 1371.3512391029672,
+  "evaluation": [
+    {
+      "kind": "evaluation",
+      "games": 10240,
+      "players": [
+        {
+          "games": 1000,
+          "wins": 530,
+          "win_rate": 0.53,
+          "paired_standard_error": 0.0138775059121112,
+          "mean_game_point_difference": 0.218,
+          "seconds": 0.14525570000114385,
+          "opponent": "random",
+          "policy": "average",
+          "seed": 1000042
+        },
+        {
+          "games": 1000,
+          "wins": 548,
+          "win_rate": 0.548,
+          "paired_standard_error": 0.01455388715300916,
+          "mean_game_point_difference": 0.238,
+          "seconds": 0.14219090000005963,
+          "opponent": "random",
+          "policy": "average",
+          "seed": 1000042
+        }
+      ]
+    },
+    {
+      "kind": "evaluation",
+      "games": 20000,
+      "players": [
+        {
+          "games": 1000,
+          "wins": 548,
+          "win_rate": 0.548,
+          "paired_standard_error": 0.014275839702041937,
+          "mean_game_point_difference": 0.289,
+          "seconds": 0.14790410000023257,
+          "opponent": "random",
+          "policy": "average",
+          "seed": 1000042
+        },
+        {
+          "games": 1000,
+          "wins": 534,
+          "win_rate": 0.534,
+          "paired_standard_error": 0.014074237753309175,
+          "mean_game_point_difference": 0.264,
+          "seconds": 0.14458320000085223,
+          "opponent": "random",
+          "policy": "average",
+          "seed": 1000042
+        }
+      ]
+    }
+  ],
+  "checkpoint": "runs/validation/latest.pt",
+  "export": "runs/validation/policy.pt"
+}

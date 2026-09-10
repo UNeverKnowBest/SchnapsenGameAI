@@ -1,0 +1,24 @@
+[
+  {
+    "games": 1000,
+    "wins": 536,
+    "win_rate": 0.536,
+    "paired_standard_error": 0.014135332158476534,
+    "mean_game_point_difference": 0.126,
+    "seconds": 0.2779473999999027,
+    "opponent": "checkpoint",
+    "policy": "average",
+    "seed": 1000042
+  },
+  {
+    "games": 1000,
+    "wins": 520,
+    "win_rate": 0.52,
+    "paired_standard_error": 0.014056855636334943,
+    "mean_game_point_difference": 0.068,
+    "seconds": 0.1304736000001867,
+    "opponent": "checkpoint",
+    "policy": "average",
+    "seed": 1000042
+  }
+]
