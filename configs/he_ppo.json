@@ -1,0 +1,20 @@
+{
+  "seed": 42,
+  "num_envs": 256,
+  "workers": 1,
+  "hidden": [256, 128, 64],
+  "lr": 0.0003,
+  "gamma": 1.0,
+  "gae_lambda": 0.95,
+  "epochs": 4,
+  "minibatch_size": 512,
+  "clip": 0.2,
+  "target_kl": 0.02,
+  "entropy_coef": 0.05,
+  "adaptive_entropy": true,
+  "target_entropy": 0.8,
+  "entropy_lr": 0.05,
+  "entropy_min": 0.001,
+  "entropy_max": 0.5,
+  "reward": "win"
+}
