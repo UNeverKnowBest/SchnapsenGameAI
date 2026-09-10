@@ -33,6 +33,9 @@ def atomic_save(state, path):
             temporary.unlink()
 
 class Trainer:
+    learner_type = Learner
+    algorithm = "nfsp"
+
     def __init__(self, config):
         self.config = config.validate()
         if config.deterministic:
@@ -45,7 +48,7 @@ class Trainer:
         torch.manual_seed(config.seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(config.seed)
-        self.learners = [Learner(config, i, self.device) for i in range(2)]
+        self.learners = [self.learner_type(config, i, self.device) for i in range(2)]
         self.collector = Collector(config)
         self.games = self.decisions = self.waves = 0
         self.training_seconds = 0.
@@ -87,6 +90,7 @@ class Trainer:
     def save(self, path):
         # Called only after a complete wave: no pending games/transitions are discarded.
         state = {
+            "algorithm": self.algorithm,
             "version": CHECKPOINT_VERSION, "feature_version": FEATURE_VERSION,
             "state_dim": STATE_DIM, "action_dim": ACTION_DIM, "config": self.config.to_dict(),
             "games": self.games, "decisions": self.decisions, "waves": self.waves,
@@ -114,6 +118,8 @@ class Trainer:
             raise ValueError("incompatible checkpoint: legacy weights require an explicit feature migration")
         if state.get("state_dim") != STATE_DIM or state.get("action_dim") != ACTION_DIM:
             raise ValueError("incompatible observation/action dimensions")
+        if state.get("algorithm", "nfsp") != cls.algorithm:
+            raise ValueError("checkpoint algorithm does not match trainer")
         config = Config(**state["config"])
         if device is not None:
             config.device = device

@@ -13,8 +13,10 @@ from .networks import Network
 from .evaluation import evaluate_policy
 
 def make_parser():
-    parser = argparse.ArgumentParser(description="Rust batched NFSP self-play")
+    parser = argparse.ArgumentParser(description="Rust batched Schnapsen self-play and research benchmarks")
     sub = parser.add_subparsers(dest="command", required=True)
+    from .research_cli import register
+    register(sub)
     train = sub.add_parser("train", help="train or resume a full NFSP snapshot")
     train.add_argument("--config", type=Path)
     train.add_argument("--resume", type=Path)
@@ -105,6 +107,9 @@ def benchmark(args):
 
 def main(argv=None):
     args = make_parser().parse_args(argv)
+    from .research_cli import dispatch
+    if dispatch(args):
+        return
     if args.command == "train":
         if args.games <= 0 or args.save_every < 0 or args.eval_every < 0:
             raise ValueError("games must be positive; intervals must be nonnegative")
