@@ -1,6 +1,26 @@
 # SchnapsenGameAI
 
-NFSP training now uses a Rust multithreaded batch environment and PyTorch batched inference/learning. See [the training guide](docs/NFSP.md) for installation, algorithm details, training, checkpoints and evaluation. Run `python -m nfsp --help` after building the extension. Historical Python bot/buffer/model files remain as reference; the new entry point is `main.py` or `python -m nfsp`.
+一键训练、设备调优、baseline 对比、SVG 图表和 latency 测量：
+
+```powershell
+.venv/Scripts/python.exe experiment.py --demo
+.venv/Scripts/python.exe experiment.py
+```
+
+默认正式实验为 3 个训练种子，每个算法每种子最多 20 × 5,000 局、每批最多 4 个 PPO epochs；支持验证集早停和 `--max-decisions`。先测 CPU/CUDA 完整训练吞吐量，再选设备、环境批量与线程数。详见 [一键实验说明](docs/EXPERIMENT.md) 和 [本机实测结果与图表](docs/EXPERIMENT_VALIDATION.md)。
+
+High-Entropy PPO self-play, standard PPO ablations, DQN/NFSP comparisons, paired-seat tournaments, and controlled parallel benchmarks are available. See [the research guide](docs/RESEARCH.md), [feature representation analysis](docs/FEATURES.md), and [measured results](docs/RESEARCH_VALIDATION.md).
+
+```sh
+python -m nfsp ppo-train --config configs/he_ppo.json --games 100000 --output runs/he-ppo
+python -m nfsp compare --games 100000 --seeds 42,43,44 --output runs/comparison
+python -m nfsp performance --games 1024 --repeats 3 --output runs/performance
+python -m nfsp feature-audit --output runs/feature_audit
+```
+
+The comparison, performance, arena, and feature audit commands generate standalone `report.html`, `results.json`, and `results.csv` files in their output directories.
+
+NFSP training now uses a Rust multithreaded batch environment and PyTorch batched inference/learning. See [the training guide](docs/NFSP.md) for installation, algorithm details, training, checkpoints and evaluation. Run `python -m nfsp --help` after building the extension. Unused historical Python bot/buffer/model implementations have been removed; active entry points are `experiment.py`, `main.py` and `python -m nfsp`.
 
 The independent deterministic Rust Schnapsen engine lives in `engine/`. The following sections document its rules compatibility and standalone tooling.
 
