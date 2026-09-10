@@ -4,8 +4,6 @@
 
 This project studies reinforcement learning in Schnapsen, a two-player card game with hidden information. We compare Double DQN, PPO, high-entropy PPO (HE-PPO), and Neural Fictitious Self-Play (NFSP). A completed CPU experiment uses three training seeds and 100,000 games per algorithm and seed. DQN and PPO give the strongest results in this experiment. A longer CUDA experiment has completed 5 million games for DQN and PPO with seed 42. Their final win rates against the heuristic opponent are **75.86% and 76.92%**. Their direct comparison is close to 50%. The learning curves show smaller gains near the end, but the available results do not establish convergence or an overall best algorithm.
 
-**Report snapshot:** 10 September 2026, based on the CUDA log last updated at 20:09:59 (UTC+8). The planned five-seed CUDA experiment is **incomplete**. Only two of ten algorithm-and-seed runs have reached the full budget. All figures below use saved results; preparing this report does not run training.
-
 ## 1. Research questions
 
 We ask three questions:
