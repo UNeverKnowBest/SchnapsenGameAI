@@ -1,0 +1,33 @@
+{
+  "seed": 42,
+  "num_envs": 256,
+  "workers": 1,
+  "device": "cpu",
+  "torch_threads": 4,
+  "hidden": [
+    256,
+    128,
+    64
+  ],
+  "lr": 0.0003,
+  "gamma": 1.0,
+  "gae_lambda": 0.95,
+  "clip": 0.2,
+  "value_coef": 0.5,
+  "grad_clip": 0.5,
+  "epochs": 4,
+  "minibatch_size": 512,
+  "target_kl": 0.02,
+  "entropy_coef": 0.01,
+  "adaptive_entropy": false,
+  "target_entropy": 0.8,
+  "entropy_lr": 0.05,
+  "entropy_min": 0.001,
+  "entropy_max": 0.5,
+  "reward": "win",
+  "deterministic": false,
+  "rollout_device": "same",
+  "adaptive_lr": false,
+  "lr_min": 1e-05,
+  "lr_max": 0.001
+}

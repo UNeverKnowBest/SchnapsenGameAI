@@ -65,6 +65,11 @@ def test_experiment_matches_budget_separates_test_and_renders(tmp_path):
     assert [r['games'] for r in data['runs']] == [8, 8]
     assert all(r['stop_reason'] == 'decision_budget' for r in data['runs'])
     assert data['protocol']['test_seed'] != data['protocol']['validation_seed']
+    assert all('decisions' in row for row in data['curves'])
+    assert data['protocol']['learning_analysis']['window'] == 5
+    assert (out / 'learning_statistics.csv').exists()
+    assert (out / 'figures' / 'learning_random_seconds.svg').exists()
+    assert (out / 'figures' / 'learning_random_decisions.svg').exists()
     assert len(data['matches']) == 5
     assert (out / 'adaptive-ppo_seed42' / 'best.pt').exists()
     assert (out / 'adaptive-ppo_seed42' / 'latest.pt').exists()

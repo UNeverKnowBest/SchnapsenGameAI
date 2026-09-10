@@ -20,13 +20,15 @@ import torch
 from nfsp._native import FEATURE_VERSION
 from nfsp.arena import Policy, checkpoint_policies, evaluate_match
 from nfsp.autotune import calibrate, measure_latency
-from nfsp.experiments import learning_chart, seed_summary
+from nfsp.learning import (learning_chart, seed_summary, add_learning_arguments,
+                           learning_protocol, export_learning, plateau_table, write_live)
 from nfsp.ppo import PPOConfig, PPOTrainer
 from nfsp.reports import bars, escape, percent_interval, table, write_csv, write_report
 
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
+    add_learning_arguments(p)
     p.add_argument("--demo", action="store_true", help="4 x 512 games, one seed; pipeline/performance check")
     p.add_argument("--output", type=Path)
     p.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
@@ -51,6 +53,7 @@ def parser():
 
 
 def settings(args):
+    learning_protocol(args)
     defaults = dict(rounds=4 if args.demo else 20, games_per_round=512 if args.demo else 5000,
                     eval_games=256 if args.demo else 1000, test_games=512 if args.demo else 4000,
                     num_envs=256 if args.demo else 1024)
@@ -140,6 +143,8 @@ def render(output, data):
     cards = {}
     for baseline in ("random", "heuristic"):
         cards[f"learning_{baseline}"] = learning_chart(data["curves"], baseline)
+        for axis in ("decisions", "seconds"):
+            cards[f"learning_{baseline}_{axis}"] = learning_chart(data["curves"], baseline, axis)
     for key, title in (("lr_used", "Learning rate"), ("normalized_entropy", "Normalized legal entropy"),
                        ("final_kl", "Final policy KL"), ("games_per_second", "Training throughput (games/s)"),
                        ("value_loss", "Value loss")):
@@ -185,7 +190,11 @@ def render(output, data):
                   [[r["device"], r["batch_size"], *[f'{r[k]:.3f}' for k in ("p50_ms", "p95_ms", "p99_ms", "actions_per_second")]] for r in latencies])
     body += f'<p>{escape(calibration.get("methodology", "Hardware tuning skipped."))}</p>'
     body += '<p>独立 SVG 文件：' + ' · '.join(links) + '</p>'
+    analysis_protocol = data["protocol"].get("learning_analysis", dict(window=5, delta=.02, min_rounds=10))
+    data["plateau"] = export_learning(output, data["curves"], analysis_protocol)
+    body += plateau_table(data["plateau"], analysis_protocol)
     write_report(output, data, "Schnapsen · 一键训练与系统性能", body)
+    write_live(output, data["curves"], analysis_protocol, complete=True)
     write_csv(output, finals)
     csv_file(output / "training.csv", data["training"])
     csv_file(output / "learning.csv", data["curves"])
@@ -213,6 +222,7 @@ def run(args):
                     frozen_baselines=[p.metadata for p in frozen],
                     budget="Per seed: rounds * games_per_round maximum; optional decision cap checked after complete primary waves; standard PPO matches actual primary games.",
                     selection="Mean random/heuristic validation win rate; best checkpoint includes round zero. Early stop after patience rounds with no improvement of >=0.005, after min_rounds.")
+    protocol["learning_analysis"] = learning_protocol(args)
     dump(output / "protocol.json", protocol)
     if args.skip_tuning:
         config = replace(config, num_envs=args.num_envs)
@@ -222,6 +232,7 @@ def run(args):
     dump(output / "config.json", config.to_dict())
     print(json.dumps(dict(stage="selected", config=config.to_dict(), output=str(output))), flush=True)
     curves, training, runs, matches, latency = [], [], [], [], []
+    write_live(output, curves, protocol["learning_analysis"])
     with (output / "events.jsonl").open("w", encoding="utf-8") as events:
         def event(data):
             events.write(json.dumps(data, allow_nan=False) + "\n")
@@ -256,9 +267,10 @@ def run(args):
                                            config.num_envs, config.workers, protocol["validation_seed"])
                         scores.append(m["win_rate"])
                         row = dict(algorithm=name, seed=seed, round=round_id, baseline=baseline,
-                                   games=trainer.games, seconds=trainer.training_seconds, win_rate=m["win_rate"])
+                                   games=trainer.games, decisions=trainer.decisions, seconds=trainer.training_seconds, win_rate=m["win_rate"])
                         curves.append(row)
                         event(dict(kind="validation", **row))
+                    write_live(output, curves, protocol["learning_analysis"])
                     score = float(np.mean(scores))
                     if score > best[name]["score"]:
                         # Any improvement selects the checkpoint; min delta controls stopping only.

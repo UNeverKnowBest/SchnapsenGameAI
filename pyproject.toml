@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = ["numpy>=2,<3", "torch>=2.9,<3"]
 
 [project.optional-dependencies]
+monitor = ["tensorboard>=2.18,<3"]
 dev = ["pytest>=8,<10", "maturin>=1.9,<2"]
 
 [project.scripts]

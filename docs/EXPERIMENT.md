@@ -1,5 +1,7 @@
 # 一键实验
 
+更新：三轴学习曲线、逐点跨种子置信区间、实时页面、平台期分析及推荐轮数见 [学习曲线与训练预算](LEARNING_CURVES.md)。
+
 使用项目虚拟环境运行；系统 Python 不一定装有相同的 CUDA PyTorch 和 Rust 扩展。
 
 ```powershell

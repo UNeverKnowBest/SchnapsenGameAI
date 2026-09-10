@@ -1,5 +1,9 @@
 # SchnapsenGameAI
 
+三种子实测后的 DQN/PPO 参数、60 轮预算建议及 TensorBoard 实时监控见 [推荐设置](docs/RECOMMENDED_SETTINGS.md)。
+
+学术学习曲线现支持训练局数/决策数/时间三个横轴、逐点跨种子 95% 区间、离线实时页面和预设平台期诊断。四算法对比新增独立最终测试与每轮策略导出；运行方法与 20/50 轮预算说明见 [学习曲线与训练预算](docs/LEARNING_CURVES.md)。
+
 一键训练、设备调优、baseline 对比、SVG 图表和 latency 测量：
 
 ```powershell

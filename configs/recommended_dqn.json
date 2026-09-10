@@ -1,0 +1,30 @@
+{
+  "seed": 42,
+  "num_envs": 256,
+  "workers": 1,
+  "device": "cpu",
+  "torch_threads": 4,
+  "hidden": [
+    256,
+    128,
+    64
+  ],
+  "eta": 1.0,
+  "gamma": 1.0,
+  "epsilon_start": 0.2,
+  "epsilon_end": 0.01,
+  "epsilon_decay_steps": 1000000,
+  "replay_capacity": 100000,
+  "reservoir_capacity": 100000,
+  "batch_size": 256,
+  "rl_warmup": 512,
+  "sl_warmup": 512,
+  "learn_every": 128,
+  "target_every": 1000,
+  "rl_lr": 0.0003,
+  "sl_lr": 0.0003,
+  "grad_clip": 5.0,
+  "double_dqn": true,
+  "soft_sl_targets": true,
+  "deterministic": false
+}

@@ -3,6 +3,7 @@ from pathlib import Path
 import torch
 from .arena import Policy, checkpoint_policies, evaluate_match
 from .experiments import run_comparison
+from .learning import add_learning_arguments
 from .performance import run_performance
 from .ppo import PPOConfig, PPOTrainer
 from .reports import heatmap, percent_interval, table, write_csv, write_report
@@ -40,6 +41,8 @@ def register(sub):
     arena.add_argument("--output", type=Path, default=Path("runs/arena"))
 
     compare = sub.add_parser("compare", help="train/evaluate algorithms at matched game budgets")
+    add_learning_arguments(compare)
+    compare.add_argument("--algorithm-config", action="append", default=[], metavar="ALGORITHM=JSON", help="per-algorithm hyperparameters; shared CLI seed/device/environment-width/network settings take precedence")
     compare.add_argument("--algorithms", default="he-ppo,ppo,nfsp,dqn")
     compare.add_argument("--baselines", default="random,heuristic")
     compare.add_argument("--baseline-checkpoint", action="append", default=[])
@@ -48,6 +51,7 @@ def register(sub):
     compare.add_argument("--games", type=int, default=100_000)
     compare.add_argument("--eval-every", type=int, default=10_000)
     compare.add_argument("--eval-games", type=int, default=2000)
+    compare.add_argument("--test-games", type=int, default=4000, help="independent final test games per opponent; even")
     compare.add_argument("--device", default="auto")
     compare.add_argument("--workers", type=int, default=1)
     compare.add_argument("--num-envs", type=int, default=256)

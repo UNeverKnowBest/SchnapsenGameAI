@@ -1,0 +1,24 @@
+{
+  "algorithms": "dqn,ppo",
+  "algorithm_configs": {
+    "dqn": "configs/recommended_dqn.json",
+    "ppo": "configs/recommended_ppo.json"
+  },
+  "rounds": 60,
+  "games_per_round": 5000,
+  "games": 300000,
+  "eval_every": 5000,
+  "eval_games": 4000,
+  "test_games": 10000,
+  "seeds": "42,43,44,45,46",
+  "device": "cpu",
+  "num_envs": 256,
+  "workers": 1,
+  "torch_threads": 4,
+  "baselines": "random,heuristic",
+  "plateau_window": 5,
+  "plateau_delta": 0.02,
+  "plateau_min_rounds": 10,
+  "budget_note": "Recommended next fixed budget, not a demonstrated optimal horizon. No training started.",
+  "source": "runs/academic_comparison_20260910/results.json"
+}
